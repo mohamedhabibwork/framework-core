@@ -1,21 +1,29 @@
 {
   "name": "@framework/core",
   "version": "0.2.0",
-  "description": "IoC container, service providers, configuration loader, lifecycle, and execution context.",
   "private": true,
-  "license": "MIT",
-  "type": "module",
+  "description": "IoC container, service providers, configuration loader, lifecycle, and execution context.",
   "homepage": "https://github.com/mohamedhabibwork/framework-core#readme",
+  "bugs": {
+    "url": "https://github.com/mohamedhabibwork/framework/issues"
+  },
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mohamedhabibwork/framework.git",
     "directory": "packages/core"
   },
-  "bugs": {
-    "url": "https://github.com/mohamedhabibwork/framework/issues"
-  },
+  "type": "module",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
     "zod": "4.6.7"

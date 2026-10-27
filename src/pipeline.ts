@@ -26,7 +26,7 @@ export class Pipeline<P> {
   }
 
   /** Runs the chain; the destination receives the payload after the last pipe. */
-  // biome-ignore lint/suspicious/noThenProperty: Laravel-style pipeline API, not a thenable
+  // oxlint-disable-next-line unicorn/no-thenable -- Laravel-style pipeline API, not a thenable
   then<D>(destination: (payload: P) => D | Promise<D>): Promise<D> {
     let forward: (payload: P) => Promise<P> = async (payload) => payload;
     for (let i = this.#pipes.length - 1; i >= 0; i -= 1) {
