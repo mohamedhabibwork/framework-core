@@ -3,9 +3,10 @@
  * dependency-injection tokens and sentinel values.
  */
 import { token } from './container/token';
+import type { RegisteredConfig } from './register';
 
-/** The application's validated configuration (bound at construction). */
-export const CONFIG = token<object>('config');
+/** The application's validated configuration (bound at construction); typed by `Register.config`. */
+export const CONFIG = token<RegisteredConfig>('config');
 
 /** Fallback execution-context token; overridden per request/job scope. */
 export const EXECUTION_CONTEXT =

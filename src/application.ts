@@ -5,6 +5,7 @@ import { EXECUTION_CONTEXT, ExecutionContext, SYSTEM_ACTOR } from './context/exe
 import { BootError, FrameworkError } from './errors';
 import { assertRequirementsMet, orderProviders } from './providers/order';
 import type { ProviderContext, ServiceProvider } from './providers/provider';
+import type { RegisteredConfig } from './register';
 import { setApplicationConfig } from './runtime/runtime';
 import type { ApplicationOptions, ApplicationState } from './types';
 
@@ -25,7 +26,9 @@ export class Application<TConfig extends object = object> {
   constructor(options: ApplicationOptions<TConfig>) {
     this.config = options.config;
     this.#providers = orderProviders(options.providers);
-    this.container.value(CONFIG, options.config);
+    // `TConfig` is the app's config; `RegisteredConfig` is the same type once the
+    // app augments `Register.config`, and `object` before — widen, then narrow.
+    this.container.value(CONFIG, options.config as object as RegisteredConfig);
     // Helpers (`config()` etc.) read the app's config from the runtime.
     setApplicationConfig(options.config);
     // Fallback execution context so every scope can resolve it; the HTTP and
