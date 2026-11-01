@@ -7,7 +7,8 @@ export { mergeEnv, parseEnvFile, readEnvFile } from './config/env';
 export { deepFreeze, loadConfig, parseConfig } from './config/load';
 export { defineConfig, fromEnv } from './config/define';
 export { isSecretKey, REDACTED, redact, redactUrl } from './config/redact';
-export { CONFIG, EXECUTION_CONTEXT } from './constants';
+export { CONFIG, DEFAULT_HEALTH_TIMEOUT_MS, EXECUTION_CONTEXT } from './constants';
+export { defineHealthCheck, runHealthChecks } from './health';
 export { Container, Scope } from './container/container';
 export type { IsConfigRegistered, Register, RegisteredConfig } from './register';
 export { token } from './container/token';
@@ -39,6 +40,9 @@ export type {
   ErrorStatus,
   Extender,
   GracefulShutdownOptions,
+  HealthCheck,
+  HealthCheckOptions,
+  HealthStatus,
   InferConfig,
   JsonObject,
   JsonPrimitive,

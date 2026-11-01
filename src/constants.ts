@@ -11,3 +11,6 @@ export const CONFIG = token<RegisteredConfig>('config');
 /** Fallback execution-context token; overridden per request/job scope. */
 export const EXECUTION_CONTEXT =
   token<import('./context/execution-context').ExecutionContext>('core.execution-context');
+
+/** Default per-probe readiness deadline, short enough for orchestrator probes. */
+export const DEFAULT_HEALTH_TIMEOUT_MS = 2_000;

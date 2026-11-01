@@ -139,6 +139,21 @@ export interface GracefulShutdownOptions {
   readonly signals?: readonly NodeJS.Signals[];
 }
 
+// -- Health -------------------------------------------------------------------
+
+export interface HealthCheckOptions {
+  /** Per-probe deadline; overrides the runner's default. */
+  readonly timeoutMs?: number;
+}
+
+/** One readiness probe. A throw or a timeout marks it `failed`; the error is never exposed. */
+export interface HealthCheck extends HealthCheckOptions {
+  readonly name: string;
+  probe(resolver: Resolver): Promise<void>;
+}
+
+export type HealthStatus = 'ok' | 'failed';
+
 // -- Error catalog (owned by ./catalog) --------------------------------------
 
 export type { ErrorCode, ErrorStatus } from './catalog';
