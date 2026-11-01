@@ -11,6 +11,17 @@ interface Binding<T extends ServiceValue> {
   readonly dispose?: (instance: T) => void | Promise<void>;
 }
 
+/** An app-level replacement; without a lifetime it inherits the replaced binding's. */
+interface OverrideBinding<T extends ServiceValue> extends Omit<Binding<T>, 'lifetime'> {
+  readonly lifetime?: Lifetime;
+}
+
+/** Wraps the effective instance; runs inside the same resolution as the factory. */
+export type Extender<T extends ServiceValue> = (instance: T, resolver: Resolver) => T;
+
+// Erased storage form: every Extender<T> is assignable to it without a cast.
+type StoredExtender = (instance: never, resolver: Resolver) => ServiceValue;
+
 interface Disposable {
   readonly name: string;
   readonly run: () => void | Promise<void>;
@@ -33,9 +44,16 @@ async function disposeAll(disposables: Disposable[]): Promise<void> {
 /**
  * Root container. Holds bindings and singleton instances. Scoped services are
  * only resolvable through a {@link Scope}; singletons may never capture them.
+ *
+ * Resolution precedence: {@link override} > {@link bind} > {@link bindDefault},
+ * then every {@link extend} decorator in registration order. Overrides and
+ * extenders are order-independent, so an app can replace or wrap anything a
+ * framework provider binds.
  */
 export class Container implements Resolver {
   readonly #bindings = new Map<symbol, Binding<ServiceValue>>();
+  readonly #overrides = new Map<symbol, OverrideBinding<ServiceValue>>();
+  readonly #extenders = new Map<symbol, readonly StoredExtender[]>();
   readonly #singletons: Cache = new Map();
   readonly #disposables: Disposable[] = [];
   #disposed = false;
@@ -82,8 +100,48 @@ export class Container implements Resolver {
     return this.bind(token, () => instance, { lifetime: 'singleton' });
   }
 
+  /** Bind only when nothing is bound yet — the form framework providers use for replaceable defaults. */
+  bindDefault<T extends ServiceValue>(
+    token: Token<T>,
+    factory: (resolver: Resolver) => T,
+    options: BindingOptions<T> = {},
+  ): this {
+    return this.#bindings.has(token.key) ? this : this.bind(token, factory, options);
+  }
+
+  /**
+   * Replace a token's implementation app-wide. Wins over {@link bind} whether
+   * registered before or after it; inherits the replaced lifetime unless
+   * `options.lifetime` is given. One override per token.
+   */
+  override<T extends ServiceValue>(
+    token: Token<T>,
+    factory: (resolver: Resolver) => T,
+    options: BindingOptions<T> = {},
+  ): this {
+    this.#assertUnresolved(token);
+    if (this.#overrides.has(token.key)) {
+      throw new FrameworkError('DUPLICATE_OVERRIDE', `Token "${token.name}" is already overridden`);
+    }
+    this.#overrides.set(token.key, {
+      token,
+      factory,
+      lifetime: options.lifetime,
+      dispose: options.dispose,
+    } as OverrideBinding<ServiceValue>);
+    return this;
+  }
+
+  /** Decorate whatever implementation a token resolves to; decorators stack in registration order. */
+  extend<T extends ServiceValue>(token: Token<T>, decorate: Extender<T>): this {
+    this.#assertUnresolved(token);
+    const existing = this.#extenders.get(token.key) ?? [];
+    this.#extenders.set(token.key, [...existing, decorate]);
+    return this;
+  }
+
   has(token: Token<ServiceValue>): boolean {
-    return this.#bindings.has(token.key);
+    return this.#bindings.has(token.key) || this.#overrides.has(token.key);
   }
 
   isResolved(token: Token<ServiceValue>): boolean {
@@ -121,7 +179,7 @@ export class Container implements Resolver {
     const override = scope?.overrideFor(token);
     if (override?.found) return override.value as T;
 
-    const binding = this.#bindings.get(token.key) as Binding<T> | undefined;
+    const binding = this.#effective(token);
     if (!binding) throw new ResolutionError('UNBOUND_TOKEN', `No binding for "${token.name}"`, nextPath);
 
     switch (binding.lifetime) {
@@ -162,6 +220,31 @@ export class Container implements Resolver {
       resolve: <U extends ServiceValue>(t: Token<U>) => this.resolveInternal(t, scope, path, keys),
       has: (t) => (scope ? scope.has(t) : this.has(t)),
     };
+  }
+
+  /** Override (else base binding) with every extender folded over its factory. */
+  #effective<T extends ServiceValue>(token: Token<T>): Binding<T> | undefined {
+    const base = this.#bindings.get(token.key) as Binding<T> | undefined;
+    const replacement = this.#overrides.get(token.key) as OverrideBinding<T> | undefined;
+    const chosen: Binding<T> | undefined = replacement
+      ? { ...replacement, lifetime: replacement.lifetime ?? base?.lifetime ?? 'singleton' }
+      : base;
+    const extenders = this.#extenders.get(token.key) as Extender<T>[] | undefined;
+    if (!chosen || !extenders) return chosen;
+    return {
+      ...chosen,
+      factory: (resolver) =>
+        extenders.reduce((instance, decorate) => decorate(instance, resolver), chosen.factory(resolver)),
+    };
+  }
+
+  #assertUnresolved(token: Token<ServiceValue>): void {
+    if (this.#singletons.has(token.key)) {
+      throw new FrameworkError(
+        'BINDING_ALREADY_RESOLVED',
+        `Token "${token.name}" has already been resolved; override or extend it before boot`,
+      );
+    }
   }
 
   #assertOpen(): void {

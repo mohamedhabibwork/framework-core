@@ -85,6 +85,85 @@ describe('Container', () => {
     expect(() => container.resolve(token('missing'))).toThrow(/No binding for "missing"/);
   });
 
+  test('override wins over bind regardless of registration order', () => {
+    const before = new Container();
+    const after = new Container();
+    const Mailer = token<{ name: string }>('mailer');
+
+    before.override(Mailer, () => ({ name: 'smtp' }));
+    before.singleton(Mailer, () => ({ name: 'console' }));
+    after.singleton(Mailer, () => ({ name: 'console' }));
+    after.override(Mailer, () => ({ name: 'smtp' }));
+
+    expect(before.resolve(Mailer).name).toBe('smtp');
+    expect(after.resolve(Mailer).name).toBe('smtp');
+  });
+
+  test('override inherits the replaced lifetime unless one is given', () => {
+    const container = new Container();
+    const State = token<{ id: number }>('state');
+    let counter = 0;
+    container.scoped(State, () => ({ id: 0 }));
+    container.override(State, () => ({ id: ++counter }));
+
+    const a = container.createScope('request');
+    const b = container.createScope('request');
+    expect(a.resolve(State)).toBe(a.resolve(State));
+    expect(a.resolve(State)).not.toBe(b.resolve(State));
+    expect(() => container.resolve(State)).toThrow(/outside a scope/);
+  });
+
+  test('override can stand alone and runs its own disposer', async () => {
+    const container = new Container();
+    const Conn = token<{ open: boolean }>('conn');
+    const closed: string[] = [];
+    container.override(Conn, () => ({ open: true }), { dispose: () => void closed.push('conn') });
+
+    expect(container.has(Conn)).toBe(true);
+    expect(container.resolve(Conn).open).toBe(true);
+    await container.dispose();
+    expect(closed).toEqual(['conn']);
+  });
+
+  test('a second override or an override after resolution fails clearly', () => {
+    const container = new Container();
+    const T = token<number>('number');
+    container.value(T, 1);
+    container.override(T, () => 2);
+    expect(() => container.override(T, () => 3)).toThrow(/already overridden/);
+
+    const resolved = new Container().value(T, 1);
+    resolved.resolve(T);
+    expect(() => resolved.override(T, () => 2)).toThrow(/already been resolved/);
+    expect(() => resolved.extend(T, (n) => n + 1)).toThrow(/already been resolved/);
+  });
+
+  test('bindDefault yields to an existing binding and fills an empty slot', () => {
+    const container = new Container();
+    const Hasher = token<string>('hasher');
+    const Clock = token<string>('clock');
+    container.value(Hasher, 'app-hasher');
+
+    container.bindDefault(Hasher, () => 'framework-hasher');
+    container.bindDefault(Clock, () => 'framework-clock');
+
+    expect(container.resolve(Hasher)).toBe('app-hasher');
+    expect(container.resolve(Clock)).toBe('framework-clock');
+  });
+
+  test('extend decorates the effective binding in registration order', () => {
+    const container = new Container();
+    const Prefix = token<string>('prefix');
+    const Greeter = token<{ greet(): string }>('greeter');
+    container.value(Prefix, '>');
+    container.extend(Greeter, (inner, r) => ({ greet: () => `${r.resolve(Prefix)} ${inner.greet()}` }));
+    container.singleton(Greeter, () => ({ greet: () => 'hello' }));
+    container.override(Greeter, () => ({ greet: () => 'hi' }));
+    container.extend(Greeter, (inner) => ({ greet: () => `${inner.greet()}!` }));
+
+    expect(container.resolve(Greeter).greet()).toBe('> hi!');
+  });
+
   test('scope disposal runs disposers in reverse creation order', async () => {
     const container = new Container();
     const order: string[] = [];

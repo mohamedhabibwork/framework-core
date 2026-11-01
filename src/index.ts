@@ -8,6 +8,7 @@ export { deepFreeze, loadConfig, parseConfig } from './config/load';
 export { isSecretKey, REDACTED, redact, redactUrl } from './config/redact';
 export { CONFIG, EXECUTION_CONTEXT } from './constants';
 export { Container, Scope } from './container/container';
+export type { Extender } from './container/container';
 export { token } from './container/token';
 export { ANONYMOUS_ACTOR, ExecutionContext, SYSTEM_ACTOR } from './context/execution-context';
 export { BootError, ConfigError, FrameworkError, ResolutionError } from './errors';
