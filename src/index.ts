@@ -5,10 +5,10 @@ export { Application } from './application';
 export { codesForStatus, ERROR_CATALOG, ERROR_CODES, ERROR_STATUSES } from './catalog';
 export { mergeEnv, parseEnvFile, readEnvFile } from './config/env';
 export { deepFreeze, loadConfig, parseConfig } from './config/load';
+export { defineConfig, fromEnv } from './config/define';
 export { isSecretKey, REDACTED, redact, redactUrl } from './config/redact';
 export { CONFIG, EXECUTION_CONTEXT } from './constants';
 export { Container, Scope } from './container/container';
-export type { Extender } from './container/container';
 export type { IsConfigRegistered, Register, RegisteredConfig } from './register';
 export { token } from './container/token';
 export { ANONYMOUS_ACTOR, ExecutionContext, SYSTEM_ACTOR } from './context/execution-context';
@@ -32,10 +32,14 @@ export type {
   ApplicationOptions,
   ApplicationState,
   BindingOptions,
+  ConfigDefinition,
   DeepReadonly,
+  DefineConfigLoadOptions,
   ErrorCode,
   ErrorStatus,
+  Extender,
   GracefulShutdownOptions,
+  InferConfig,
   JsonObject,
   JsonPrimitive,
   JsonValue,

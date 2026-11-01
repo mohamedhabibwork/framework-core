@@ -1,5 +1,5 @@
 import { FrameworkError, ResolutionError } from '../errors';
-import type { BindingOptions, Lifetime, Resolver, ScopeKind, ServiceValue } from '../types';
+import type { BindingOptions, Extender, Lifetime, Resolver, ScopeKind, ServiceValue } from '../types';
 import type { Token } from './token';
 
 export type { BindingOptions, Lifetime, Resolver, ScopeKind } from '../types';
@@ -15,9 +15,6 @@ interface Binding<T extends ServiceValue> {
 interface OverrideBinding<T extends ServiceValue> extends Omit<Binding<T>, 'lifetime'> {
   readonly lifetime?: Lifetime;
 }
-
-/** Wraps the effective instance; runs inside the same resolution as the factory. */
-export type Extender<T extends ServiceValue> = (instance: T, resolver: Resolver) => T;
 
 // Erased storage form: every Extender<T> is assignable to it without a cast.
 type StoredExtender = (instance: never, resolver: Resolver) => ServiceValue;

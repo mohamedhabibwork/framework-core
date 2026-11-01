@@ -44,6 +44,32 @@ export interface LoadConfigOptions<TSchema extends z.ZodType> {
   processEnv?: Record<string, string | undefined>;
 }
 
+/** Options for {@link ConfigDefinition.load}. */
+export interface DefineConfigLoadOptions {
+  /** Env file to read; `false` skips it. Defaults to `.env` in the working directory. */
+  readonly envFile?: string | false;
+  readonly envFileRequired?: boolean;
+  /** Defaults to `process.env`; wins over the env file. */
+  readonly processEnv?: Record<string, string | undefined>;
+}
+
+/** What `defineConfig` returns: the composed schema plus its env-derived loaders. */
+export interface ConfigDefinition<TShape extends z.ZodRawShape> {
+  readonly schema: z.ZodObject<TShape>;
+  /** Every variable bound with `fromEnv`, in shape order (for `.env.example` and docs). */
+  readonly envKeys: readonly string[];
+  /** The schema input derived from an environment, before validation. */
+  mapEnv(env: Readonly<Record<string, string | undefined>>): z.input<z.ZodObject<TShape>>;
+  /** Validate an environment into the frozen config. */
+  parse(env: Readonly<Record<string, string | undefined>>): DeepReadonly<z.output<z.ZodObject<TShape>>>;
+  /** Read the env file, merge the process env over it, and validate. */
+  load(options?: DefineConfigLoadOptions): Promise<DeepReadonly<z.output<z.ZodObject<TShape>>>>;
+}
+
+/** The frozen config type a `defineConfig` definition produces. */
+export type InferConfig<TDefinition> =
+  TDefinition extends ConfigDefinition<infer TShape> ? DeepReadonly<z.output<z.ZodObject<TShape>>> : never;
+
 // -- Container ----------------------------------------------------------------
 
 export type Lifetime = 'singleton' | 'scoped' | 'transient';
@@ -67,6 +93,9 @@ export interface Token<T> {
 }
 
 export type TokenType<TToken> = TToken extends Token<infer T> ? T : never;
+
+/** `Container.extend` decorator: wraps the effective instance inside the same resolution. */
+export type Extender<T extends ServiceValue> = (instance: T, resolver: Resolver) => T;
 
 // -- Providers ----------------------------------------------------------------
 
