@@ -243,6 +243,84 @@ describe('Application lifecycle', () => {
     );
   });
 
+  test('orders providers by the tokens they provide and require, not list order', async () => {
+    const events: string[] = [];
+    const Store = token<string>('store');
+    const Limiter = token<string>('limiter');
+    const app = new Application({
+      config: {},
+      providers: [
+        defineProvider({
+          name: 'auth',
+          requires: [Store],
+          optional: [Limiter],
+          register: ({ container }) => void events.push(`auth:${container.has(Limiter)}`),
+        }),
+        defineProvider({
+          name: 'cache',
+          provides: [Limiter],
+          register: ({ container }) => void container.value(Limiter, 'limiter'),
+        }),
+        defineProvider({
+          name: 'database',
+          provides: [Store],
+          register: ({ container }) => {
+            container.value(Store, 'store');
+            events.push('database');
+          },
+        }),
+      ],
+    });
+
+    expect(app.providerNames).toEqual(['database', 'cache', 'auth']);
+    await app.boot();
+    expect(events).toEqual(['database', 'auth:true']);
+  });
+
+  test('optional tokens never fail and required tokens may come from app bindings', async () => {
+    const Clock = token<string>('clock');
+    const Missing = token<string>('missing');
+    const app = new Application({
+      config: {},
+      providers: [defineProvider({ name: 'jobs', requires: [Clock], optional: [Missing], register: () => {} })],
+    });
+    app.container.value(Clock, 'app-clock');
+
+    await app.boot();
+    expect(app.state).toBe('booted');
+  });
+
+  test('unmet required tokens fail before any provider registers', async () => {
+    const registered: string[] = [];
+    const Store = token<string>('session-store');
+    const app = new Application({
+      config: {},
+      providers: [
+        defineProvider({ name: 'db', register: () => void registered.push('db') }),
+        defineProvider({ name: 'auth', requires: [Store], register: () => void registered.push('auth') }),
+      ],
+    });
+
+    await expect(app.boot()).rejects.toThrow(/Provider "auth" requires "session-store"/);
+    expect(registered).toEqual([]);
+    expect(app.state).toBe('failed');
+  });
+
+  test('token requirements that loop report a provider cycle', () => {
+    const X = token<string>('x');
+    const Y = token<string>('y');
+    expect(
+      () =>
+        new Application({
+          config: {},
+          providers: [
+            defineProvider({ name: 'a', provides: [X], requires: [Y], register: () => {} }),
+            defineProvider({ name: 'b', provides: [Y], requires: [X], register: () => {} }),
+          ],
+        }),
+    ).toThrow(/a -> b -> a/);
+  });
+
   test('deferred providers only shut down when activated', async () => {
     const events: string[] = [];
     const Mailer = token<string>('mailer');

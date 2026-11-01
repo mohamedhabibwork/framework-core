@@ -78,6 +78,12 @@ export interface ProviderContext<TConfig extends object = object> {
 export type ServiceProvider<TConfig extends object = object> = {
   readonly name: string;
   readonly dependsOn?: readonly string[];
+  /** Tokens this provider binds; providers requiring them are ordered after it. */
+  readonly provides?: readonly Token<ServiceValue>[];
+  /** Tokens that must be bound (by a provider or the app) before boot, else boot fails. */
+  readonly requires?: readonly Token<ServiceValue>[];
+  /** Tokens used when present (`container.has`); only affect ordering. */
+  readonly optional?: readonly Token<ServiceValue>[];
   /** Deferred providers skip `boot`; `shutdown` runs only when a provided token was resolved. */
   readonly deferred?: { readonly provides: readonly Token<ServiceValue>[] };
   register(context: ProviderContext<TConfig>): void;

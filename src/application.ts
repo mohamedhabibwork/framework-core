@@ -3,7 +3,7 @@ import { CONFIG } from './constants';
 import { Container, type Scope, type ScopeKind } from './container/container';
 import { EXECUTION_CONTEXT, ExecutionContext, SYSTEM_ACTOR } from './context/execution-context';
 import { BootError, FrameworkError } from './errors';
-import { orderProviders } from './providers/order';
+import { assertRequirementsMet, orderProviders } from './providers/order';
 import type { ProviderContext, ServiceProvider } from './providers/provider';
 import { setApplicationConfig } from './runtime/runtime';
 import type { ApplicationOptions, ApplicationState } from './types';
@@ -48,6 +48,12 @@ export class Application<TConfig extends object = object> {
   async boot(): Promise<this> {
     if (this.#state !== 'created') {
       throw new FrameworkError('INVALID_STATE', `Cannot boot application in state "${this.#state}"`);
+    }
+    try {
+      assertRequirementsMet(this.#providers, (required) => this.container.has(required));
+    } catch (error) {
+      this.#state = 'failed';
+      throw error;
     }
     this.#state = 'booting';
     const context = this.#context();
