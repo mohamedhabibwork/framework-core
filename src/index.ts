@@ -10,7 +10,7 @@ export { isSecretKey, REDACTED, redact, redactUrl } from './config/redact';
 export { CONFIG, DEFAULT_HEALTH_TIMEOUT_MS, EXECUTION_CONTEXT } from './constants';
 export { defineHealthCheck, runHealthChecks } from './health';
 export { Container, Scope } from './container/container';
-export type { IsConfigRegistered, Register, RegisteredConfig } from './register';
+export type { IsConfigRegistered, Register, RegisteredConfig, RegisteredUser } from './register';
 export { token } from './container/token';
 export { ANONYMOUS_ACTOR, ExecutionContext, SYSTEM_ACTOR } from './context/execution-context';
 export { BootError, ConfigError, FrameworkError, ResolutionError } from './errors';

@@ -19,5 +19,8 @@ export interface Register {}
 /** The application's config type, or `object` when `Register.config` is not augmented. */
 export type RegisteredConfig = Register extends { readonly config: infer TConfig extends object } ? TConfig : object;
 
+/** The application's user row, or `object` when `Register.user` is not augmented. */
+export type RegisteredUser = Register extends { readonly user: infer TUser extends object } ? TUser : object;
+
 /** `true` once an application has augmented `Register.config`. */
 export type IsConfigRegistered = Register extends { readonly config: object } ? true : false;
