@@ -2,8 +2,8 @@ import { z } from 'zod/v4';
 import type { ConfigDefinition } from '../types';
 import { loadConfig, parseConfig } from './load';
 
-/** Env var name per schema instance; a WeakMap keeps the metadata out of JSON Schema output. */
-const ENV_BINDINGS = new WeakMap<z.ZodType, string>();
+/** Env var names per schema instance; a WeakMap keeps the metadata out of JSON Schema output. */
+const ENV_BINDINGS = new WeakMap<z.ZodType, readonly string[]>();
 
 /** Env-derived input: strings at leaves, nested sections as objects. */
 interface EnvInput {
@@ -13,15 +13,17 @@ interface EnvInput {
 type Env = Readonly<Record<string, string | undefined>>;
 
 /**
- * Binds a config leaf to an environment variable. Pass a fresh schema per
- * call — the binding belongs to the schema instance:
+ * Binds a config leaf to an environment variable, or to several where the
+ * first one set wins. Pass a fresh schema per call — the binding belongs to
+ * the schema instance:
  *
  * ```ts
  * port: fromEnv('HTTP_PORT', z.coerce.number().int().default(3000)),
+ * url: fromEnv(['CACHE_URL', 'REDIS_URL'], z.string().min(1)),
  * ```
  */
-export function fromEnv<TSchema extends z.ZodType>(name: string, schema: TSchema): TSchema {
-  ENV_BINDINGS.set(schema, name);
+export function fromEnv<TSchema extends z.ZodType>(names: string | readonly string[], schema: TSchema): TSchema {
+  ENV_BINDINGS.set(schema, typeof names === 'string' ? [names] : names);
   return schema;
 }
 
@@ -44,9 +46,9 @@ function sectionOf(schema: z.ZodType): { readonly object: z.ZodObject; readonly 
 function mapSection(object: z.ZodObject, env: Env): { readonly value: EnvInput; readonly found: boolean } {
   const entries = Object.entries(object.shape as Record<string, z.ZodType>).flatMap(
     ([key, field]): [string, string | EnvInput, boolean][] => {
-      const name = ENV_BINDINGS.get(field);
-      if (name !== undefined) {
-        const raw = env[name];
+      const names = ENV_BINDINGS.get(field);
+      if (names !== undefined) {
+        const raw = names.map((name) => env[name]).find((value) => value !== undefined);
         return raw === undefined ? [] : [[key, raw, true]];
       }
       const section = sectionOf(field);
@@ -63,8 +65,8 @@ function mapSection(object: z.ZodObject, env: Env): { readonly value: EnvInput; 
 
 function envKeysOf(object: z.ZodObject): string[] {
   return Object.values(object.shape as Record<string, z.ZodType>).flatMap((field) => {
-    const name = ENV_BINDINGS.get(field);
-    if (name !== undefined) return [name];
+    const names = ENV_BINDINGS.get(field);
+    if (names !== undefined) return [...names];
     const section = sectionOf(field);
     return section ? envKeysOf(section.object) : [];
   });

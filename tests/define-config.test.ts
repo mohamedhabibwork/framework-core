@@ -75,6 +75,19 @@ describe('defineConfig', () => {
     ]);
   });
 
+  test('a leaf bound to several env vars takes the first one set and lists them all', () => {
+    const definition = defineConfig({
+      cache: z.object({ url: fromEnv(['CACHE_URL', 'REDIS_URL'], z.string().default('redis://default')) }),
+    });
+
+    expect(definition.parse({ CACHE_URL: 'redis://cache', REDIS_URL: 'redis://shared' }).cache.url).toBe(
+      'redis://cache',
+    );
+    expect(definition.parse({ REDIS_URL: 'redis://shared' }).cache.url).toBe('redis://shared');
+    expect(definition.parse({}).cache.url).toBe('redis://default');
+    expect(definition.envKeys).toEqual(['CACHE_URL', 'REDIS_URL']);
+  });
+
   test('validation errors name the path, never the value', () => {
     const definition = defineConfig({
       database: z.object({ url: fromEnv('DATABASE_URL', z.url({ protocol: /^postgres$/ })) }),
